@@ -2,13 +2,6 @@ use std::thread;
 use std::net::{TcpListener, TcpStream, Shutdown};
 use std::io::{Read};
 
-/*
-impl fmt::Display for Result<&str, Utf8Error> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", self)
-    }
-}
-*/
 fn find_msg_len(buf:& [u8], msg_size:usize) -> Option<(usize,usize)> {
     let msg_len = &buf[0..msg_size]; 
     let total = msg_len.iter().try_fold((0,0), |(total,length),i | {match i {
@@ -28,28 +21,24 @@ fn handle_client(mut stream: TcpStream) {
         let peek_val = stream.peek(&mut buf);
         match peek_val {
             Ok(size) => {
-                match find_msg_len(&buf,size) {
-                    None => (),
-                    Some((msg_size,size_length)) => {
-                        let mut bufsize = msg_size + size_length;
-                        let mut buf = vec![0 as u8;bufsize];
-                        match stream.read_exact(&mut buf) {
-                            Ok(()) => {
-                                let logline = String::from_utf8(buf.to_vec());
-                                match logline {
-                                    Ok(str) => {
-                                        println!("{}",str);
-                                    },
-                                    Err(_) => {
-                                        println!("Unable to convert log to string");
-                                    }
-                                }
+                let mut msg_sizes = find_msg_len(&buf,size).unwrap();
+                let mut bufsize = msg_sizes.0 + msg_sizes.1;
+                let mut buf = vec![0 as u8;bufsize];
+                match stream.read_exact(&mut buf) {
+                    Ok(()) => {
+                        let logline = String::from_utf8(buf.to_vec());
+                        match logline {
+                            Ok(str) => {
+                                println!("{}",str);
                             },
                             Err(_) => {
-                                println!("Failed to read {} from buffer",bufsize);
+                                println!("Unable to convert log to string");
                             }
                         }
                     },
+                    Err(_) => {
+                        println!("Failed to read {} from buffer",bufsize);
+                    }
                 }
             },
             Err(_) => {
@@ -59,7 +48,6 @@ fn handle_client(mut stream: TcpStream) {
         } 
     }
 }
-
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:2514").unwrap();
     println!("Server listening on port 2514");
